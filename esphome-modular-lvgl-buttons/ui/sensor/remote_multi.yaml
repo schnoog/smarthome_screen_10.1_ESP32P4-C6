@@ -1,0 +1,406 @@
+# Remote sensor tile — displays up to 3 live values from Home Assistant sensors.
+# Read-only: no action scripts, no detail page.
+#
+# vars:
+#   uid:                unique identifier
+#
+#   entity_id:          HA sensor entity for value 1
+#   attribute:          HA attribute for value 1 (optional, default: state)
+#   label:              label for value 1 (optional, default: text)
+#   unit:               unit for value 1 (optional, default: "")
+#   precision:          decimal places for value 1 (optional, default: 1)
+#
+#   sensor2_entity_id:  HA sensor entity for value 2
+#                       (optional, defaults to entity_id)
+#   sensor2_attribute:  HA attribute for value 2 (optional, default: state)
+#   label2:              label for value 2 (optional, default: "")
+#   unit2:              unit for value 2 (optional, default: "")
+#   precision2:         decimal places for value 2 (optional, default: 1)
+#
+#   sensor3_entity_id:  HA sensor entity for value 3
+#                       (optional, defaults to entity_id)
+#   sensor3_attribute:  HA attribute for value 3 (optional, default: state)
+#   label3:             label for value 3 (optional, default: "")
+#   unit3:              unit for value 3 (optional, default: "")
+#   precision3:         decimal places for value 3 (optional, default: 1)
+#
+#   row:                grid row
+#   column:             grid column
+#   text:               sensor/tile name
+#   icon:               icon glyph
+#
+#   bg_opa:             background opacity
+#                       0%-100% or TRANSP/COVER
+#                       (optional, default: COVER)
+#
+#   row_span:           (default: 1)
+#   column_span:        (default: 1)
+#   page_id:            parent page (default: main_page)
+#
+#   label_font:         font for labels
+#   sensor_font:        font for sensor values
+#
+# Example:
+#
+#   vars:
+#     uid: climate_livingroom
+#     entity_id: sensor.livingroom_temperature
+#     label: "Temperatur"
+#     unit: "°C"
+#     precision: 1
+#
+#     sensor2_entity_id: sensor.livingroom_humidity
+#     label2: "Luftfeuchte"
+#     unit2: "%"
+#     precision2: 0
+#
+#     sensor3_entity_id: sensor.livingroom_co2
+#     label3: "CO₂"
+#     unit3: "ppm"
+#     precision3: 0
+#
+#     row: 1
+#     column: 1
+#     text: "Wohnzimmer"
+#     icon: $mdi_home
+#
+# ─────────────────────────────────────────────────────────────────────────────
+
+globals:
+
+# Value 1
+- id: ${uid}_current_value
+  type: float
+  initial_value: '0.0'
+
+# Value 2
+- id: ${uid}_current_value2
+  type: float
+  initial_value: '0.0'
+
+# Value 3
+- id: ${uid}_current_value3
+  type: float
+  initial_value: '0.0'
+
+
+lvgl:
+
+  pages:
+  - id: !extend ${page_id | default("main_page")}
+
+    widgets:
+
+    - container:
+        id: ${uid}_tile
+
+        grid_cell_row_pos: ${row}
+        grid_cell_column_pos: ${column}
+
+        grid_cell_row_span: ${row_span | default(1)}
+        grid_cell_column_span: ${column_span | default(1)}
+
+        grid_cell_x_align: stretch
+        grid_cell_y_align: stretch
+
+        widgets:
+
+        - button:
+            id: button_${uid}
+
+            bg_opa: ${bg_opa | default("COVER")}
+
+            clickable: false
+
+            widgets:
+
+            # ─────────────────────────────────────────────────────────────
+            # Icon
+            # ─────────────────────────────────────────────────────────────
+
+            - label:
+                id: icon_${uid}
+
+                text_font: $icon_font
+                text_color: $icon_off_color
+
+                align: top_left
+
+                text: ${icon}
+
+
+            # ─────────────────────────────────────────────────────────────
+            # Tile title
+            # ─────────────────────────────────────────────────────────────
+
+            - label:
+                id: label_${uid}
+
+                align: bottom_left
+
+                long_mode: wrap
+
+                width: 70%
+
+                text_color: $label_off_color
+
+                text_font: ${label_font | default(text_font)}
+
+                text: ${text}
+
+
+            # ─────────────────────────────────────────────────────────────
+            # Sensor value 1
+            # ─────────────────────────────────────────────────────────────
+
+            - label:
+                id: value_${uid}
+
+                align: top_right
+
+                text_font: ${sensor_font | default(text_font)}
+
+                text_color: $label_on_color
+
+                text: "--"
+
+
+            # ─────────────────────────────────────────────────────────────
+            # Sensor label 2 + value 2
+            #
+            # Placed below value 1.
+            # The label is empty by default, effectively hiding value 2.
+            # ─────────────────────────────────────────────────────────────
+
+            - label:
+                id: label2_${uid}
+
+                align: top_right
+
+                y: 30px
+
+                text_font: ${label_font | default(text_font)}
+
+                text_color: $label_off_color
+
+                text: ${label2 | default("")}
+
+
+            - label:
+                id: value2_${uid}
+
+                align: top_right
+
+                y: 48px
+
+                text_font: ${sensor_font | default(text_font)}
+
+                text_color: $label_on_color
+
+                text: "--"
+
+
+            # ─────────────────────────────────────────────────────────────
+            # Sensor label 3 + value 3
+            # ─────────────────────────────────────────────────────────────
+
+            - label:
+                id: label3_${uid}
+
+                align: top_right
+
+                y: 78px
+
+                text_font: ${label_font | default(text_font)}
+
+                text_color: $label_off_color
+
+                text: ${label3 | default("")}
+
+
+            - label:
+                id: value3_${uid}
+
+                align: top_right
+
+                y: 96px
+
+                text_font: ${sensor_font | default(text_font)}
+
+                text_color: $label_on_color
+
+                text: "--"
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# HOME ASSISTANT SENSOR 1
+# ═════════════════════════════════════════════════════════════════════════════
+
+sensor:
+
+- platform: homeassistant
+  id: ${uid}_ha_value
+
+  entity_id: ${entity_id}
+
+  attribute: ${attribute | default("")}
+
+  internal: true
+
+  on_value:
+  - lambda: |-
+      id(${uid}_current_value) = x;
+
+  - script.execute: ${uid}_sync_state
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# HOME ASSISTANT SENSOR 2
+#
+# Defaults to sensor 1 if no second entity is supplied.
+# ═════════════════════════════════════════════════════════════════════════════
+
+- platform: homeassistant
+  id: ${uid}_ha_value2
+
+  entity_id: ${sensor2_entity_id | default(entity_id)}
+
+  attribute: ${sensor2_attribute | default("")}
+
+  internal: true
+
+  on_value:
+  - lambda: |-
+      id(${uid}_current_value2) = x;
+
+  - script.execute: ${uid}_sync_state2
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# HOME ASSISTANT SENSOR 3
+#
+# Defaults to sensor 1 if no third entity is supplied.
+# ═════════════════════════════════════════════════════════════════════════════
+
+- platform: homeassistant
+  id: ${uid}_ha_value3
+
+  entity_id: ${sensor3_entity_id | default(entity_id)}
+
+  attribute: ${sensor3_attribute | default("")}
+
+  internal: true
+
+  on_value:
+  - lambda: |-
+      id(${uid}_current_value3) = x;
+
+  - script.execute: ${uid}_sync_state3
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SCRIPTS
+# ═════════════════════════════════════════════════════════════════════════════
+
+script:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Update value 1
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: ${uid}_sync_state
+
+  then:
+
+  - lvgl.label.update:
+      id: value_${uid}
+
+      text: !lambda |-
+        char buf[32];
+
+        snprintf(
+          buf,
+          sizeof(buf),
+          "%.*f",
+          ${precision | default(1)},
+          id(${uid}_current_value)
+        );
+
+        std::string s(buf);
+
+        std::string unit = "${unit | default("")}";
+
+        if (!unit.empty()) {
+          s += " " + unit;
+        }
+
+        return s;
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Update value 2
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: ${uid}_sync_state2
+
+  then:
+
+  - lvgl.label.update:
+      id: value2_${uid}
+
+      text: !lambda |-
+        char buf[32];
+
+        snprintf(
+          buf,
+          sizeof(buf),
+          "%.*f",
+          ${precision2 | default(1)},
+          id(${uid}_current_value2)
+        );
+
+        std::string s(buf);
+
+        std::string unit = "${unit2 | default("")}";
+
+        if (!unit.empty()) {
+          s += " " + unit;
+        }
+
+        return s;
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Update value 3
+# ─────────────────────────────────────────────────────────────────────────────
+
+- id: ${uid}_sync_state3
+
+  then:
+
+  - lvgl.label.update:
+      id: value3_${uid}
+
+      text: !lambda |-
+        char buf[32];
+
+        snprintf(
+          buf,
+          sizeof(buf),
+          "%.*f",
+          ${precision3 | default(1)},
+          id(${uid}_current_value3)
+        );
+
+        std::string s(buf);
+
+        std::string unit = "${unit3 | default("")}";
+
+        if (!unit.empty()) {
+          s += " " + unit;
+        }
+
+        return s;
+
+
+

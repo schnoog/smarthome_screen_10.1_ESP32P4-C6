@@ -1,0 +1,98 @@
+# Camera tile — displays a Home Assistant camera snapshot
+#
+# vars:
+#   uid:          unique identifier
+#   camera_url:   URL returning a JPEG snapshot
+#   row:          grid row
+#   column:       grid column
+#   text:         camera name shown on tile
+#   row_span:     default 1
+#   column_span:  default 1
+#   page_id:      parent page
+#   bg_opa:       background opacity
+#
+#   image_width:  image width
+#   image_height: image height
+#
+#   update_interval: snapshot update interval, default 5s
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Camera image
+# ─────────────────────────────────────────────────────────────────────────────
+
+image:
+  - platform: online_image
+    id: ${uid}_camera_image
+
+    url: ${camera_url}
+
+    format: JPEG
+    type: RGB565
+
+    resize: ${image_width}x${image_height}
+
+    update_interval: ${update_interval | default("5s")}
+
+    on_download_finished:
+      then:
+        - lvgl.image.update:
+            id: camera_image_${uid}
+            src: ${uid}_camera_image
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LVGL page
+# ─────────────────────────────────────────────────────────────────────────────
+
+lvgl:
+  pages:
+    - id: !extend ${page_id | default("main_page")}
+
+      widgets:
+
+        - container:
+            id: ${uid}_tile
+
+            grid_cell_row_pos: ${row}
+            grid_cell_column_pos: ${column}
+
+            grid_cell_row_span: ${row_span | default(1)}
+            grid_cell_column_span: ${column_span | default(1)}
+
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+
+            widgets:
+
+              - button:
+                  id: button_${uid}
+
+                  bg_opa: ${bg_opa | default("COVER")}
+
+                  clickable: false
+
+                  widgets:
+
+                    # ── Camera image ──────────────────────────────────────
+
+                    - image:
+                        id: camera_image_${uid}
+                        src: ${uid}_camera_image
+                        align: center
+
+                    # ── Camera title ──────────────────────────────────────
+
+                    - label:
+                        id: camera_label_${uid}
+
+                        text: ${text}
+
+                        align: top_mid
+
+                        text_font: ${label_font | default(text_font)}
+                        text_color: $label_on_color
+
+                        bg_opa: 70%
+
+                        y: 5

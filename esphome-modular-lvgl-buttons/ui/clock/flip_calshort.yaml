@@ -1,0 +1,289 @@
+---
+# Flip Date Widget - 3 Flip Cards
+#
+# Eigenständiges Datums-Widget
+#
+# Anzeige:
+#    [ FRE ] [ 04 ] [ SEP ]
+#
+# Flip 1: Wochentag - 3 Buchstaben, Deutsch
+# Flip 2: Tag       - 2-stellig
+# Flip 3: Monat     - 3 Buchstaben, Deutsch
+#
+# vars:
+#    uid:
+#    page_id:      parent page id (default "main_page")
+#    row:
+#    column:
+#    row_span:
+#    column_span:
+#    click_page:
+#    font_size:    text size in px (default 32)
+#    height:       inner date height within the cell (default "100%")
+#
+# Label IDs:
+#    flip_date_weekday_label
+#    flip_date_day_label
+#    flip_date_month_label
+
+font:
+  # ─────────────────────────────────────
+  # Wochentag
+  # ─────────────────────────────────────
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_date_weekday_font
+    size: ${font_size | default(32)}
+    bpp: 4
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü"
+
+  # ─────────────────────────────────────
+  # Tag
+  # ─────────────────────────────────────
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_date_day_font
+    size: ${font_size | default(32)}
+    bpp: 4
+    glyphs: "0123456789"
+
+  # ─────────────────────────────────────
+  # Monat
+  # ─────────────────────────────────────
+  - file: "gfonts://Space+Grotesk@600"
+    id: flip_date_month_font
+    size: ${font_size | default(32)}
+    bpp: 4
+    glyphs: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzÄÖÜäöü"
+
+lvgl:
+  gradients:
+    - id: flip_date_card_gradient
+      direction: ver
+      stops:
+        - color: 0x1B2634
+          position: 0
+        - color: 0x141D29
+          position: 255
+
+  style_definitions:
+
+    # ─────────────────────────────────────
+    # Gemeinsamer Kartenstil
+    # ─────────────────────────────────────
+    - id: flip_date_card_style
+      bg_grad: flip_date_card_gradient
+      bg_grad_dir: ver
+      bg_opa: cover
+      radius: 12
+      border_width: 1
+      border_color: 0x2A3644
+      pad_all: 0
+      scrollbar_mode: "OFF"
+
+    # ─────────────────────────────────────
+    # Wochentag
+    # ─────────────────────────────────────
+    - id: flip_date_weekday_style
+      text_font: flip_date_weekday_font
+      text_color: 0xE9EEF4
+      align: center
+
+    # ─────────────────────────────────────
+    # Tag
+    # ─────────────────────────────────────
+    - id: flip_date_day_style
+      text_font: flip_date_day_font
+      text_color: 0xE9EEF4
+      align: center
+
+    # ─────────────────────────────────────
+    # Monat
+    # ─────────────────────────────────────
+    - id: flip_date_month_style
+      text_font: flip_date_month_font
+      text_color: 0xE9EEF4
+      align: center
+
+    # ─────────────────────────────────────
+    # Äußerer Container
+    # ─────────────────────────────────────
+    - id: flip_date_outer_style
+      bg_opa: TRANSP
+
+  pages:
+    - id: !extend ${page_id | default("main_page")}
+      widgets:
+        - obj:
+            id: ${uid}
+            grid_cell_row_pos: ${row}
+            grid_cell_column_pos: ${column}
+            grid_cell_row_span: ${row_span | default(1)}
+            grid_cell_column_span: ${column_span | default(1)}
+            grid_cell_x_align: stretch
+            grid_cell_y_align: stretch
+            styles: flip_date_outer_style
+            scrollbar_mode: "OFF"
+            scrollable: false
+            pad_all: 0
+
+            on_short_click:
+              then:
+                - lvgl.page.show: ${click_page | default("main_page")}
+
+            widgets:
+
+              # ─────────────────────────────────────
+              # 3 Flip-Karten
+              # ─────────────────────────────────────
+              - obj:
+                  width: 100%
+                  height: ${height | default("100%")}
+                  align: CENTER
+                  bg_opa: TRANSP
+                  pad_all: 2
+                  scrollbar_mode: "OFF"
+                  scrollable: false
+
+                  layout:
+                    type: FLEX
+                    flex_flow: ROW
+                    flex_align_main: CENTER
+                    flex_align_cross: CENTER
+                    flex_align_track: CENTER
+                    pad_column: 6
+
+                  widgets:
+
+                    # ═══════════════════════════════
+                    # 1. WOCHENTAG
+                    # ═══════════════════════════════
+                    - obj:
+                        styles: flip_date_card_style
+                        flex_grow: 1
+                        height: 100%
+                        scrollable: false
+
+                        widgets:
+                          - label:
+                              id: flip_date_weekday_label
+                              styles: flip_date_weekday_style
+                              align: CENTER
+                              text: "MON"
+
+                    # ═══════════════════════════════
+                    # 2. TAG
+                    # ═══════════════════════════════
+                    - obj:
+                        styles: flip_date_card_style
+                        flex_grow: 1
+                        height: 100%
+                        scrollable: false
+
+                        widgets:
+                          - label:
+                              id: flip_date_day_label
+                              styles: flip_date_day_style
+                              align: CENTER
+                              text: "01"
+
+                    # ═══════════════════════════════
+                    # 3. MONAT
+                    # ═══════════════════════════════
+                    - obj:
+                        styles: flip_date_card_style
+                        flex_grow: 1
+                        height: 100%
+                        scrollable: false
+
+                        widgets:
+                          - label:
+                              id: flip_date_month_label
+                              styles: flip_date_month_style
+                              align: CENTER
+                              text: "JAN"
+
+script:
+  - id: !extend time_update
+    then:
+
+      # ─────────────────────────────────────
+      # 1. Wochentag
+      # ─────────────────────────────────────
+      - lvgl.label.update:
+          id: flip_date_weekday_label
+          text: !lambda |-
+            auto t = id(system_time).now();
+
+            if (!t.is_valid())
+              return std::string("MON");
+
+            switch (t.day_of_week) {
+              case 1:
+                return std::string("SON");
+              case 2:
+                return std::string("MON");
+              case 3:
+                return std::string("DIE");
+              case 4:
+                return std::string("MIT");
+              case 5:
+                return std::string("DON");
+              case 6:
+                return std::string("FRE");
+              case 7:
+                return std::string("SAM");
+              default:
+                return std::string("MON");
+            }
+
+      # ─────────────────────────────────────
+      # 2. Tag
+      # ─────────────────────────────────────
+      - lvgl.label.update:
+          id: flip_date_day_label
+          text: !lambda |-
+            auto t = id(system_time).now();
+
+            if (!t.is_valid())
+              return std::string("01");
+
+            return str_sprintf("%02d", t.day_of_month);
+
+      # ─────────────────────────────────────
+      # 3. Monat
+      # ─────────────────────────────────────
+      - lvgl.label.update:
+          id: flip_date_month_label
+          text: !lambda |-
+            auto t = id(system_time).now();
+
+            if (!t.is_valid())
+              return std::string("JAN");
+
+            switch (t.month) {
+              case 1:
+                return std::string("JAN");
+              case 2:
+                return std::string("FEB");
+              case 3:
+                return std::string("MÄR");
+              case 4:
+                return std::string("APR");
+              case 5:
+                return std::string("MAI");
+              case 6:
+                return std::string("JUN");
+              case 7:
+                return std::string("JUL");
+              case 8:
+                return std::string("AUG");
+              case 9:
+                return std::string("SEP");
+              case 10:
+                return std::string("OKT");
+              case 11:
+                return std::string("NOV");
+              case 12:
+                return std::string("DEZ");
+              default:
+                return std::string("JAN");
+            }

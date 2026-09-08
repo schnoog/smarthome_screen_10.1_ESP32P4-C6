@@ -1,0 +1,693 @@
+---
+# ═══════════════════════════════════════════════════════════════════════════════
+# NOAA TIDE UPDATE - Direct API Integration
+# ═══════════════════════════════════════════════════════════════════════════════
+# Fetches tide prediction data directly from the NOAA CO-OPS API.
+#
+# NOAA API: https://api.tidesandcurrents.noaa.gov/api/prod/
+#
+# Required vars:
+#   noaa_station_id: Your NOAA station ID (e.g., "9414290" for San Francisco)
+#                    Find yours at: https://tidesandcurrents.noaa.gov/map/
+#
+# Optional vars:
+#   noaa_unit_system:          "english" or "metric"  (default: "english")
+#                              Selects the units returned by the NOAA API.
+#   noaa_unit_of_measurement:  Unit label exposed to Home Assistant on the
+#                              level sensors.  Default: "ft".  Set to "m"
+#                              when using noaa_unit_system: "metric".
+#
+# Time zone handling:
+#   Predictions are requested from NOAA in GMT and converted to epoch using
+#   a TZ-independent algorithm.  The device's local time zone (set by your
+#   time component, e.g. homeassistant) is only used for *display* via
+#   localtime_r(), so DST and offset changes are handled automatically.
+#
+# Sensors published to Home Assistant:
+#   sensor.tide_percentage     (%, 1 decimal, mdi:waves)
+#   sensor.high_tide_level     (ft|m, 2 decimals, mdi:wave-arrow-up)
+#   sensor.low_tide_level      (ft|m, 2 decimals, mdi:wave-arrow-down)
+#   sensor.mean_high_water     (ft|m, 2 decimals, mdi:waves-arrow-up)
+#   sensor.mean_low_water      (ft|m, 2 decimals, mdi:waves-arrow-left)
+#   text_sensor.high_tide_time (mdi:clock-time-eight)
+#   text_sensor.low_tide_time  (mdi:clock-time-two)
+#
+# Usage in your main config:
+#   packages:
+#     tide_info: !include
+#       file: esphome-modular-lvgl-buttons/ui/tides/NOAA_tide_update.yaml
+#       vars:
+#         noaa_station_id: "9414290"
+#         noaa_unit_system: "english"            # or "metric"
+#         noaa_unit_of_measurement: "ft"         # or "m"
+# ═══════════════════════════════════════════════════════════════════════════════
+
+http_request:
+
+# Defaults for optional vars (used when not provided by the caller)
+defaults:
+  noaa_unit_system: english
+  noaa_unit_of_measurement: ft  # "ft" for english, "m" for metric
+  noaa_max_retries: '4'         # retry attempts on NOAA failure (backoff: 15/30/60/120s)
+
+# -------------------------------------------
+# Global Variables
+# -------------------------------------------
+# Store tide prediction data for percentage calculations
+globals:
+  - id: noaa_unit_label
+    type: const char * const
+    restore_value: false
+    initial_value: '"${noaa_unit_system}" == std::string("metric") ? "m" : "ft"'
+  - id: noaa_last_tide_epoch
+    type: time_t
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_next_tide_epoch
+    type: time_t
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_next_tide_is_high
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  # Retry/backoff state for NOAA fetches
+  - id: noaa_retry_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_fetch_ok
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+  - id: noaa_datums_retry_count
+    type: int
+    restore_value: false
+    initial_value: '0'
+  - id: noaa_datums_ok
+    type: bool
+    restore_value: false
+    initial_value: 'false'
+
+# -------------------------------------------
+# Graphics and Fonts
+# -------------------------------------------
+image:
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/tide_pointer.svg
+    id: tide_pointer
+    resize: 180x80
+
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/high_tide.svg
+    id: high_tide
+    resize: 60x66
+
+  - platform: file
+    type: RGB565
+    transparency: alpha_channel
+    file: esphome-modular-lvgl-buttons/ui/tides/assets/images/low_tide.svg
+    id: low_tide
+    resize: 60x66
+
+font:
+  - file: "gfonts://Roboto@700"
+    id: roboto24_bold
+    size: 24
+    bpp: 8
+
+# -------------------------------------------
+# On-screen outage indicator
+# -------------------------------------------
+# A small banner on LVGL's top layer, hidden until the tide fetch gives up
+# (so a NOAA outage is visible on the panel, not just in the logs). Shown by
+# fetch_noaa_tides/noaa_schedule_retry, hidden again on the next good fetch.
+lvgl:
+  top_layer:
+    widgets:
+      - obj:
+          id: tide_unavailable
+          hidden: true
+          align: BOTTOM_MID
+          y: -8
+          width: SIZE_CONTENT
+          height: SIZE_CONTENT
+          radius: 8
+          bg_color: 0xB00020
+          bg_opa: 85%
+          border_width: 0
+          shadow_opa: TRANSP
+          pad_left: 12
+          pad_right: 12
+          pad_top: 6
+          pad_bottom: 6
+          widgets:
+            - label:
+                text: "Tide data unavailable"
+                text_color: 0xFFFFFF
+                text_font: roboto24_bold
+
+# -------------------------------------------
+# Sensors (Template - populated from NOAA API)
+# -------------------------------------------
+sensor:
+  # Tide percentage: 0=just after high tide heading to low,
+  #   50=at low tide, 100=at high tide
+  # Recalculates every 60 seconds from stored epoch values
+  - platform: template
+    name: "Tide Percentage"
+    id: tide_percentage
+    icon: mdi:waves
+    unit_of_measurement: "%"
+    accuracy_decimals: 1
+    filters:
+      - round: 1
+    update_interval: 60s
+    lambda: |-
+      time_t last_e = id(noaa_last_tide_epoch);
+      time_t next_e = id(noaa_next_tide_epoch);
+      if (last_e == 0 || next_e == 0 || next_e <= last_e) return NAN;
+
+      time_t now_e = id(system_time).now().timestamp;
+      float period = (float)(next_e - last_e);
+      float elapsed = (float)(now_e - last_e);
+      float ratio = elapsed / period;
+      if (ratio < 0.0f) ratio = 0.0f;
+      if (ratio > 1.0f) ratio = 1.0f;
+
+      // 0→50 = heading to low tide, 50→100 = heading to high tide
+      float base = id(noaa_next_tide_is_high) ? 50.0f : 0.0f;
+      return base + (ratio * 50.0f);
+    on_value:
+      then:
+        - lvgl.indicator.update:
+            id: tide_level
+            value: !lambda "return id(tide_percentage).state;"
+
+  - platform: template
+    name: "High Tide Level"
+    id: high_tide_level
+    icon: mdi:wave-arrow-up
+    unit_of_measurement: "${noaa_unit_of_measurement}"
+    accuracy_decimals: 2
+    filters:
+      - round: 2
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: high_tide_height
+            text:
+              format: "%.1f %s"
+              args: ['id(high_tide_level).state', 'id(noaa_unit_label)']
+
+  - platform: template
+    name: "Low Tide Level"
+    id: low_tide_level
+    icon: mdi:wave-arrow-down
+    unit_of_measurement: "${noaa_unit_of_measurement}"
+    accuracy_decimals: 2
+    filters:
+      - round: 2
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: low_tide_height
+            text:
+              format: "%.1f %s"
+              args: ['id(low_tide_level).state', 'id(noaa_unit_label)']
+
+  # Mean High Water and Mean Low Water (relative to MLLW datum)
+  # Fetched once on boot from NOAA Metadata API - these values rarely change
+  - platform: template
+    name: "Mean High Water"
+    id: mean_high_water
+    icon: mdi:waves-arrow-up
+    unit_of_measurement: "${noaa_unit_of_measurement}"
+    accuracy_decimals: 2
+    filters:
+      - round: 2
+    update_interval: never
+
+  - platform: template
+    name: "Mean Low Water"
+    id: mean_low_water
+    icon: mdi:waves-arrow-left
+    unit_of_measurement: "${noaa_unit_of_measurement}"
+    accuracy_decimals: 2
+    filters:
+      - round: 2
+    update_interval: never
+
+# -------------------------------------------
+# Text Sensors
+# -------------------------------------------
+text_sensor:
+  - platform: template
+    name: "High Tide Time"
+    id: high_tide_time_sensor
+    icon: mdi:clock-time-eight
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: high_tide_label
+            text:
+              format: "%s"
+              args: ['id(high_tide_time_sensor).state.c_str()']
+
+  - platform: template
+    name: "Low Tide Time"
+    id: low_tide_time_sensor
+    icon: mdi:clock-time-two
+    update_interval: never
+    on_value:
+      then:
+        - lvgl.label.update:
+            id: low_tide_label
+            text:
+              format: "%s"
+              args: ['id(low_tide_time_sensor).state.c_str()']
+
+# -------------------------------------------
+# Scripts
+# -------------------------------------------
+# Extend on_ha_connected script (called from loading.yaml when HA connects)
+script:
+  - id: !extend on_ha_connected
+    then:
+      # Delay to avoid colliding with other action calls at startup
+      - delay: 5s
+      - script.execute: fetch_noaa_datums
+      - script.execute: fetch_noaa_tides
+
+  # Fetch tidal datums (MLW, MHW) from NOAA Metadata API
+  # These are station constants that don't change, so only fetched once on boot.
+  # Values are converted from station datum (STND) to MLLW to match predictions.
+  # API docs: https://api.tidesandcurrents.noaa.gov/mdapi/prod/
+  - id: fetch_noaa_datums
+    then:
+      - logger.log:
+          level: INFO
+          format: "Fetching NOAA tidal datums for station ${noaa_station_id}..."
+      - http_request.get:
+          capture_response: true
+          max_response_buffer_size: 3072
+          url: "https://api.tidesandcurrents.noaa.gov/mdapi/prod/webapi/stations/${noaa_station_id}/datums.json?units=${noaa_unit_system}"
+          on_response:
+            then:
+              - lambda: |-
+                  id(noaa_datums_ok) = false;
+                  if (response->status_code != 200) {
+                    ESP_LOGE("noaa", "NOAA Datums API returned HTTP %d", response->status_code);
+                    return;
+                  }
+                  if (body.length() == 0) {
+                    ESP_LOGE("noaa", "Empty response from NOAA Datums API");
+                    return;
+                  }
+
+                  ESP_LOGD("noaa", "Got %d bytes from NOAA Datums API", body.length());
+
+                  // Parse JSON: {"datums": [{"name": "MHW", "value": 8.78}, ...]}
+                  // Values are relative to station datum (STND).
+                  // Subtract MLLW to convert to the same datum used by tide predictions.
+                  json::parse_json(body, [](JsonObject root) -> bool {
+                    if (!root["datums"].is<JsonArray>()) {
+                      ESP_LOGE("noaa", "Datums response missing 'datums' key");
+                      return false;
+                    }
+
+                    JsonArray datums = root["datums"];
+                    float mllw = NAN, mlw = NAN, mhw = NAN;
+
+                    for (JsonObject datum : datums) {
+                      const char* name = datum["name"];
+                      if (!name) continue;
+                      float val = datum["value"].as<float>();
+
+                      if (strcmp(name, "MLLW") == 0) mllw = val;
+                      else if (strcmp(name, "MLW") == 0) mlw = val;
+                      else if (strcmp(name, "MHW") == 0) mhw = val;
+                    }
+
+                    if (std::isnan(mllw) || std::isnan(mlw) || std::isnan(mhw)) {
+                      ESP_LOGE("noaa", "Could not find required datums (MLLW/MLW/MHW)");
+                      return false;
+                    }
+
+                    // Convert from station datum to MLLW datum
+                    float mlw_mllw = mlw - mllw;
+                    float mhw_mllw = mhw - mllw;
+
+                    id(mean_low_water).publish_state(mlw_mllw);
+                    id(mean_high_water).publish_state(mhw_mllw);
+
+                    ESP_LOGI("noaa", "Tidal datums (relative to MLLW): MLW=%.2f, MHW=%.2f",
+                      mlw_mllw, mhw_mllw);
+
+                    // Success — clear the datums retry counter
+                    id(noaa_datums_ok) = true;
+                    id(noaa_datums_retry_count) = 0;
+                    return true;
+                  });
+              - if:
+                  condition:
+                    lambda: 'return !id(noaa_datums_ok);'
+                  then:
+                    - logger.log:
+                        level: WARN
+                        format: "NOAA datums unusable (bad status or missing values); scheduling retry"
+                    - script.execute: noaa_schedule_datums_retry
+          on_error:
+            then:
+              - logger.log:
+                  level: WARN
+                  format: "NOAA datums request failed (no response); scheduling retry"
+              - script.execute: noaa_schedule_datums_retry
+
+  # Retry helper: exponential backoff, then re-run fetch_noaa_tides.
+  # Triggered on any failed tide fetch (non-200 like 504, empty body, a
+  # connection error, or a 200 with no usable predictions). Gives up after
+  # ${noaa_max_retries} attempts and keeps the last good data on screen; the
+  # 5-minute interval will try again later.
+  - id: noaa_schedule_retry
+    mode: restart
+    then:
+      - lambda: 'id(noaa_retry_count) += 1;'
+      - if:
+          condition:
+            lambda: 'return id(noaa_retry_count) <= ${noaa_max_retries};'
+          then:
+            - delay: !lambda |-
+                // Exponential backoff: 15, 30, 60, 120s (capped) per attempt.
+                int secs = 15;
+                for (int i = 1; i < id(noaa_retry_count) && secs < 120; i++) secs *= 2;
+                if (secs > 120) secs = 120;
+                ESP_LOGW("noaa", "NOAA retry %d/${noaa_max_retries} in %ds",
+                         id(noaa_retry_count), secs);
+                return (uint32_t) secs * 1000;
+            - script.execute: fetch_noaa_tides
+          else:
+            - logger.log:
+                level: WARN
+                format: "NOAA tide fetch failed after %d attempts; keeping last data, will retry on the next 5-min cycle"
+                args: ['id(noaa_retry_count)']
+            - lambda: 'id(noaa_retry_count) = 0;'
+            # Surface the outage on the panel
+            - lvgl.widget.show: tide_unavailable
+
+  # Retry helper for the one-shot datums fetch (MHW/MLW). Same backoff.
+  # There is no 5-minute fallback for datums, so after ${noaa_max_retries}
+  # attempts it gives up until the next boot.
+  - id: noaa_schedule_datums_retry
+    mode: restart
+    then:
+      - lambda: 'id(noaa_datums_retry_count) += 1;'
+      - if:
+          condition:
+            lambda: 'return id(noaa_datums_retry_count) <= ${noaa_max_retries};'
+          then:
+            - delay: !lambda |-
+                int secs = 15;
+                for (int i = 1; i < id(noaa_datums_retry_count) && secs < 120; i++) secs *= 2;
+                if (secs > 120) secs = 120;
+                ESP_LOGW("noaa", "NOAA datums retry %d/${noaa_max_retries} in %ds",
+                         id(noaa_datums_retry_count), secs);
+                return (uint32_t) secs * 1000;
+            - script.execute: fetch_noaa_datums
+          else:
+            - logger.log:
+                level: WARN
+                format: "NOAA datums fetch failed after %d attempts; MHW/MLW unavailable until next boot"
+                args: ['id(noaa_datums_retry_count)']
+            - lambda: 'id(noaa_datums_retry_count) = 0;'
+
+  # Main script: Fetch tide predictions from NOAA CO-OPS API
+  - id: fetch_noaa_tides
+    then:
+      - if:
+          condition:
+            lambda: 'return id(system_time).now().is_valid();'
+          then:
+            - logger.log:
+                level: INFO
+                format: "Fetching NOAA tide predictions for station ${noaa_station_id}..."
+            - http_request.get:
+                capture_response: true
+                max_response_buffer_size: 2048
+                url: !lambda |-
+                  // Build URL with date range: yesterday through tomorrow
+                  // This ensures we always capture the most recent past tide
+                  // and the next upcoming tide, even near midnight.
+                  auto now = id(system_time).now();
+                  time_t now_epoch = now.timestamp;
+                  time_t yesterday_epoch = now_epoch - 86400;
+                  time_t tomorrow_epoch = now_epoch + 86400;
+                  struct tm yesterday_tm, tomorrow_tm;
+                  localtime_r(&yesterday_epoch, &yesterday_tm);
+                  localtime_r(&tomorrow_epoch, &tomorrow_tm);
+                  char begin_buf[9], end_buf[9];
+                  strftime(begin_buf, sizeof(begin_buf), "%Y%m%d", &yesterday_tm);
+                  strftime(end_buf, sizeof(end_buf), "%Y%m%d", &tomorrow_tm);
+                  char url[350];
+                  snprintf(url, sizeof(url),
+                    "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?"
+                    "begin_date=%s&end_date=%s"
+                    "&station=${noaa_station_id}"
+                    "&product=predictions&datum=MLLW&interval=hilo"
+                    "&time_zone=gmt&units=${noaa_unit_system}"
+                    "&application=ESPHome&format=json",
+                    begin_buf, end_buf);
+                  ESP_LOGD("noaa", "Request URL: %s", url);
+                  return std::string(url);
+                on_response:
+                  then:
+                    - lambda: |-
+                        id(noaa_fetch_ok) = false;
+                        if (response->status_code != 200) {
+                          ESP_LOGE("noaa", "NOAA API returned HTTP %d", response->status_code);
+                          return;
+                        }
+                        if (body.length() == 0) {
+                          ESP_LOGE("noaa", "Empty response from NOAA API");
+                          return;
+                        }
+
+                        ESP_LOGD("noaa", "Got %d bytes from NOAA API", body.length());
+
+                        // Parse the NOAA JSON response
+                        // Format: {"predictions": [{"t":"YYYY-MM-DD HH:MM", "v":"1.234", "type":"H"}, ...]}
+                        json::parse_json(body, [](JsonObject root) -> bool {
+                          if (!root["predictions"].is<JsonArray>()) {
+                            // NOAA replies 200 with {"error":{"message":"..."}} when it
+                            // returns no prediction data. That's usually a transient NOAA
+                            // API outage (retry handles it), but can also mean a
+                            // decommissioned/invalid station. Surface NOAA's own message.
+                            const char *noaa_err = root["error"]["message"].as<const char *>();
+                            if (noaa_err != nullptr) {
+                              ESP_LOGE("noaa", "NOAA returned no predictions for station ${noaa_station_id}: "
+                                               "%s (usually a temporary NOAA outage; will retry)", noaa_err);
+                            } else {
+                              ESP_LOGE("noaa", "NOAA response has no 'predictions' for station ${noaa_station_id} "
+                                               "(verify the station offers tide predictions; will retry)");
+                            }
+                            return false;
+                          }
+
+                          JsonArray predictions = root["predictions"];
+                          if (predictions.size() == 0) {
+                            ESP_LOGE("noaa", "Empty predictions array");
+                            return false;
+                          }
+
+                          ESP_LOGD("noaa", "Parsing %d tide predictions", predictions.size());
+
+                          time_t now_epoch = id(system_time).now().timestamp;
+
+                          // Track the most recent past tide and the first future tide
+                          time_t best_last_epoch = 0;
+                          float best_last_level = 0;
+                          bool best_last_is_high = false;
+
+                          time_t best_next_epoch = 0;
+                          float best_next_level = 0;
+                          bool best_next_is_high = false;
+                          bool found_next = false;
+
+                          // First upcoming HIGH and first upcoming LOW, tracked
+                          // independently so both displayed times are always in
+                          // the future (not the one that already passed).
+                          time_t best_next_high_epoch = 0;
+                          float  best_next_high_level = 0;
+                          time_t best_next_low_epoch = 0;
+                          float  best_next_low_level = 0;
+
+                          for (JsonObject prediction : predictions) {
+                            const char* t = prediction["t"];
+                            const char* v = prediction["v"];
+                            const char* type_str = prediction["type"];
+                            if (!t || !v || !type_str) continue;
+
+                            // Parse time: "YYYY-MM-DD HH:MM"
+                            int yr, mo, dy, hr, mn;
+                            if (sscanf(t, "%d-%d-%d %d:%d", &yr, &mo, &dy, &hr, &mn) != 5) {
+                              ESP_LOGW("noaa", "Failed to parse time: %s", t);
+                              continue;
+                            }
+                            struct tm tm_time = {};
+                            tm_time.tm_year = yr - 1900;
+                            tm_time.tm_mon = mo - 1;
+                            tm_time.tm_mday = dy;
+                            tm_time.tm_hour = hr;
+                            tm_time.tm_min = mn;
+                            tm_time.tm_isdst = 0;
+                            // NOAA returns GMT; convert UTC tm -> epoch without
+                            // relying on the system TZ (timegm() not in newlib).
+                            // Days from 1970-01-01 to start of (yr, mo, dy):
+                            int y = yr;
+                            int m = mo;
+                            if (m <= 2) { y -= 1; m += 12; }
+                            long era = (y >= 0 ? y : y - 399) / 400;
+                            unsigned yoe = (unsigned)(y - era * 400);
+                            unsigned doy = (153 * (m - 3) + 2) / 5 + dy - 1;
+                            unsigned doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+                            long days = era * 146097L + (long)doe - 719468L;
+                            time_t pred_epoch = (time_t)days * 86400L
+                                              + (time_t)hr * 3600
+                                              + (time_t)mn * 60;
+
+                            float level = atof(v);
+                            bool is_high = (strcmp(type_str, "H") == 0);
+
+                            if (pred_epoch <= now_epoch) {
+                              if (pred_epoch > best_last_epoch) {
+                                best_last_epoch = pred_epoch;
+                                best_last_level = level;
+                                best_last_is_high = is_high;
+                              }
+                            } else {
+                              // First future tide overall — kept for the dial's
+                              // last->next interpolation.
+                              if (!found_next) {
+                                best_next_epoch = pred_epoch;
+                                best_next_level = level;
+                                best_next_is_high = is_high;
+                                found_next = true;
+                              }
+                              // First future high and first future low, for the
+                              // "next high" / "next low" time & level display.
+                              if (is_high) {
+                                if (best_next_high_epoch == 0) {
+                                  best_next_high_epoch = pred_epoch;
+                                  best_next_high_level = level;
+                                }
+                              } else {
+                                if (best_next_low_epoch == 0) {
+                                  best_next_low_epoch = pred_epoch;
+                                  best_next_low_level = level;
+                                }
+                              }
+                            }
+                          }
+
+                          if (!found_next || best_last_epoch == 0) {
+                            ESP_LOGW("noaa", "Could not determine last/next tide from predictions");
+                            return false;
+                          }
+
+                          // Store epochs for tide_percentage calculation
+                          id(noaa_last_tide_epoch) = best_last_epoch;
+                          id(noaa_next_tide_epoch) = best_next_epoch;
+                          id(noaa_next_tide_is_high) = best_next_is_high;
+
+                          // Format epoch to "10:58 AM" (strip leading zero)
+                          auto fmt_time = [](time_t epoch) -> std::string {
+                            struct tm tm;
+                            localtime_r(&epoch, &tm);
+                            char buf[16];
+                            strftime(buf, sizeof(buf), "%I:%M %p", &tm);
+                            return std::string(buf[0] == '0' ? buf + 1 : buf);
+                          };
+
+                          // Publish the NEXT high and NEXT low independently, so
+                          // both times are always upcoming. Previously the tide
+                          // that wasn't the very next one showed its LAST (past)
+                          // occurrence. on_value triggers the LVGL updates.
+                          if (best_next_high_epoch != 0) {
+                            id(high_tide_level).publish_state(best_next_high_level);
+                            id(high_tide_time_sensor).publish_state(fmt_time(best_next_high_epoch));
+                          } else {
+                            ESP_LOGW("noaa", "No upcoming HIGH tide in prediction window");
+                          }
+                          if (best_next_low_epoch != 0) {
+                            id(low_tide_level).publish_state(best_next_low_level);
+                            id(low_tide_time_sensor).publish_state(fmt_time(best_next_low_epoch));
+                          } else {
+                            ESP_LOGW("noaa", "No upcoming LOW tide in prediction window");
+                          }
+
+                          ESP_LOGI("noaa", "Last tide: %s at %ld (%.2f)",
+                            best_last_is_high ? "High" : "Low", (long)best_last_epoch, best_last_level);
+                          ESP_LOGI("noaa", "Next tide: %s at %ld (%.2f)",
+                            best_next_is_high ? "High" : "Low", (long)best_next_epoch, best_next_level);
+
+                          // Recalculate tide percentage
+                          id(tide_percentage).update();
+
+                          // Success — clear the retry counter
+                          id(noaa_fetch_ok) = true;
+                          id(noaa_retry_count) = 0;
+                          return true;
+                        });
+                    - if:
+                        condition:
+                          lambda: 'return !id(noaa_fetch_ok);'
+                        then:
+                          - logger.log:
+                              level: WARN
+                              format: "NOAA tide data unusable (bad status or no predictions); scheduling retry"
+                          - script.execute: noaa_schedule_retry
+                        else:
+                          # Fresh data — clear any on-screen outage banner
+                          - lvgl.widget.hide: tide_unavailable
+                on_error:
+                  then:
+                    - logger.log:
+                        level: WARN
+                        format: "NOAA tide request failed (no response); scheduling retry"
+                    - script.execute: noaa_schedule_retry
+          else:
+            - logger.log:
+                level: WARN
+                format: "Time not yet synced - skipping NOAA tide fetch"
+
+# -------------------------------------------
+# Periodic Refresh
+# -------------------------------------------
+# Check every 5 minutes whether a re-fetch is needed.
+# Only makes an API call when data is stale or next tide is < 3 hours away.
+interval:
+  - interval: 5min
+    then:
+      - if:
+          condition:
+            lambda: |-
+              // Skip if time isn't synced yet
+              if (!id(system_time).now().is_valid()) return false;
+              // Always fetch if we have no data
+              time_t next_e = id(noaa_next_tide_epoch);
+              if (next_e == 0) return true;
+              // Re-fetch if next tide has already passed (data is stale)
+              time_t now_e = id(system_time).now().timestamp;
+              if (now_e >= next_e) return true;
+              // Re-fetch if next tide is less than 3 hours away
+              // (ensures we get fresh data for the tide after that)
+              return (next_e - now_e) < 10800;
+          then:
+            - script.execute: fetch_noaa_tides
