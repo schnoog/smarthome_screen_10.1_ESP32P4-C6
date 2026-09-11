@@ -30,15 +30,15 @@ image:
     format: JPEG
     type: RGB565
 
-    resize: ${image_width}x${image_height}
+#    resize: ${image_width}x${image_height}
 
     update_interval: ${update_interval | default("5s")}
 
-    on_download_finished:
-      then:
-        - lvgl.image.update:
-            id: camera_image_${uid}
-            src: ${uid}_camera_image
+#    on_download_finished:
+#      then:
+#        - lvgl.image.update:
+#            id: camera_image_${uid}
+#            src: ${uid}_camera_image
 
 
 # ─────────────────────────────────────────────────────────────────────────────

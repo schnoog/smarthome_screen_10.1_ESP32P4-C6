@@ -30,6 +30,8 @@ sensor:
     on_value:
       then:
         # Update power value
+
+
         - lvgl.label.update:
             id: ${uid}_power_value
             text: !lambda |-
@@ -51,6 +53,9 @@ sensor:
               return std::string(buf);
 
         # Update power title
+
+
+
         - lvgl.label.update:
             id: ${uid}_power_title
             text: !lambda |-
@@ -63,6 +68,32 @@ sensor:
               }
 
               return std::string("${power_text | default('Netzbezug')}");
+            text_color: !lambda |-
+              if (isnan(x)) {
+                return lv_color_hex(0xFFFFFF);
+              }
+
+              if (x < 0) {
+                return lv_color_hex(0x00CC66);
+              }
+
+              return lv_color_hex(0xFF4444);
+
+        - lvgl.label.update:
+            id: ${uid}_power_icon
+            text_color: !lambda |-
+              if (x < 0) {
+                return lv_color_hex(0x00CC66);
+              }
+              return lv_color_hex(0xFF4444);
+
+        - lvgl.label.update:
+            id: ${uid}_power_value
+            text_color: !lambda |-
+              if (x < 0) {
+                return lv_color_hex(0x00CC66);
+              }
+              return lv_color_hex(0xFF4444);
 
   # ---------------------------------------------------------------------------
   # Current solar production

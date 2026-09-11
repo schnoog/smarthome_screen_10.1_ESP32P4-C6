@@ -335,27 +335,27 @@ packages:
 # VMMMP" dMP dMP dMP dMP dMPdMMMMMP dMP dMP dMP dMP    
 #                                                      
 
-###  camera:
-###    !include
-###      file: draft/camera_remote.yaml
-###
-###      vars:
-###        uid: esp32s3cam
+  camera:
+    !include
+      file: draft/camera_remote.yaml
 
-###        row: 1
-###        column: 4
-###        row_span: 2
-###        column_span: 2
+      vars:
+        uid: esp32s3cam
 
-###        text: "Kamera"
+        row: 1
+        column: 4
+        row_span: 2
+        column_span: 2
 
-###        image_width: 240
-###        image_height: 176
+        text: "Kamera"
 
-###        camera_url: "https://ha.schnoogcontrol.de/local/esp32s3cam.jpg"
+        image_width: 240
+        image_height: 176
 
-###        update_interval: 5s
+        camera_url: "http://192.168.178.119:8123/local/esp32s3cam.jpg"
 
+        update_interval: 15s
+        page_id: "second_page"
 
 #  ____           _ _       
 # |  _ \ __ _  __| (_) ___  
