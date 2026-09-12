@@ -30,6 +30,10 @@ esphome:
   name: "homedisplay"
   friendly_name: "Advance-P4-10.1-inch"
   comment: "Advance-P4-10.1-inch as Waveshare ESP32-P4 WiFi6 Touch LCD 7B 1024px X 600px Smart Screen"
+  platformio_options:
+    build_flags:
+      - "-D LV_USE_CHART=1"
+
   on_boot:
     - priority: 400
       then:
@@ -556,19 +560,6 @@ packages:
 #                                              
 
 
-  history_chart: !include
-    file: draft/history_chart/chart.yaml
-    vars:
-      uid: temp_history
-      title: "Klima"
-      temperature_entity: "sensor.cyd1_temperatur_2"
-      humidity_entity: "sensor.cyd1_feuchtigkeit_2"
-      pressure_entity: "sensor.cyd1_luftdruck_2"
-      row: 0
-      column: 0
-      row_span: 4
-      column_span: 6
-      page_id: "second_page"
 
 
 
