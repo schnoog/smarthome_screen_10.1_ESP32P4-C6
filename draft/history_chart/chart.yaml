@@ -1,0 +1,660 @@
+# ui/history_chart/chart.yaml
+#
+# Historical Home Assistant recorder chart for esphome-modular-lvgl-buttons.
+# User configuration is supplied through !include vars only.
+#
+# Required:
+#   uid
+#   temperature_entity
+#
+# Optional:
+#   humidity_entity
+#   pressure_entity
+#   title
+#   row, column, row_span, column_span, page_id
+#
+# The three recorder queries deliberately contain up to three IDs. If humidity
+# or pressure is omitted, the corresponding query uses temperature_entity
+# again; the C++ data store de-duplicates equal IDs.
+
+esphome:
+  includes:
+    - esphome-modular-lvgl-buttons/ui/history_chart/history_chart.h
+    - esphome-modular-lvgl-buttons/ui/history_chart/history_chart.cpp
+
+globals:
+  - id: ${uid}_history_data
+    type: esphome::modular_history_chart::HistoryChartData *
+    restore_value: no
+    initial_value: 'new esphome::modular_history_chart::HistoryChartData()'
+
+script:
+  - id: ${uid}_history_query_1h
+    then:
+      - lambda: |-
+          id(${uid}_history_data)->begin("1h", "${temperature_entity}", "${humidity_entity | default(temperature_entity)}", "${pressure_entity | default(temperature_entity)}");
+      - lvgl.label.update:
+          id: ${uid}_history_status
+          text: "Lade 1h …"
+      - homeassistant.action:
+          action: recorder.get_statistics
+          data:
+            statistic_ids:
+              - "${temperature_entity}"
+              - "${humidity_entity | default(temperature_entity)}"
+              - "${pressure_entity | default(temperature_entity)}"
+            start_time: "{{ (now() - timedelta(hours=1)).isoformat() }}"
+            end_time: "{{ now().isoformat() }}"
+            period: 5minute
+#            types:
+#              - mean
+          capture_response: true
+          on_success:
+            - lambda: |-
+                id(${uid}_history_data)->load_response(response);
+            - lvgl.widget.refresh: ${uid}_history_plot_1
+            - lvgl.widget.refresh: ${uid}_history_plot_2
+            - lvgl.widget.refresh: ${uid}_history_plot_3
+            - lvgl.widget.refresh: ${uid}_history_minmax_1
+            - lvgl.widget.refresh: ${uid}_history_minmax_2
+            - lvgl.widget.refresh: ${uid}_history_minmax_3
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "1h"
+          on_error:
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "HA-Fehler"
+
+  - id: ${uid}_history_query_6h
+    then:
+      - lambda: |-
+          id(${uid}_history_data)->begin("6h", "${temperature_entity}", "${humidity_entity | default(temperature_entity)}", "${pressure_entity | default(temperature_entity)}");
+      - lvgl.label.update:
+          id: ${uid}_history_status
+          text: "Lade 6h …"
+      - homeassistant.action:
+          action: recorder.get_statistics
+          data:
+            statistic_ids:
+              - ${temperature_entity}
+              - ${humidity_entity | default(temperature_entity)}
+              - ${pressure_entity | default(temperature_entity)}
+            start_time: "{{ (now() - timedelta(hours=6)).isoformat() }}"
+            end_time: "{{ now().isoformat() }}"
+            period: 5minute
+            types:
+              - mean
+          capture_response: true
+          on_success:
+            - lambda: |-
+                id(${uid}_history_data)->load_response(response);
+            - lvgl.widget.refresh: ${uid}_history_plot_1
+            - lvgl.widget.refresh: ${uid}_history_plot_2
+            - lvgl.widget.refresh: ${uid}_history_plot_3
+            - lvgl.widget.refresh: ${uid}_history_minmax_1
+            - lvgl.widget.refresh: ${uid}_history_minmax_2
+            - lvgl.widget.refresh: ${uid}_history_minmax_3
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "6h"
+          on_error:
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "HA-Fehler"
+
+  - id: ${uid}_history_query_24h
+    then:
+      - lambda: |-
+          id(${uid}_history_data)->begin("24h", "${temperature_entity}", "${humidity_entity | default(temperature_entity)}", "${pressure_entity | default(temperature_entity)}");
+      - lvgl.label.update:
+          id: ${uid}_history_status
+          text: "Lade 24h …"
+      - homeassistant.action:
+          action: recorder.get_statistics
+          data:
+            statistic_ids:
+              - ${temperature_entity}
+              - ${humidity_entity | default(temperature_entity)}
+              - ${pressure_entity | default(temperature_entity)}
+            start_time: "{{ (now() - timedelta(hours=24)).isoformat() }}"
+            end_time: "{{ now().isoformat() }}"
+            period: 5minute
+            types:
+              - mean
+          capture_response: true
+          on_success:
+            - lambda: |-
+                id(${uid}_history_data)->load_response(response);
+            - lvgl.widget.refresh: ${uid}_history_plot_1
+            - lvgl.widget.refresh: ${uid}_history_plot_2
+            - lvgl.widget.refresh: ${uid}_history_plot_3
+            - lvgl.widget.refresh: ${uid}_history_minmax_1
+            - lvgl.widget.refresh: ${uid}_history_minmax_2
+            - lvgl.widget.refresh: ${uid}_history_minmax_3
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "24h"
+          on_error:
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "HA-Fehler"
+
+  - id: ${uid}_history_query_7d
+    then:
+      - lambda: |-
+          id(${uid}_history_data)->begin("7d", "${temperature_entity}", "${humidity_entity | default(temperature_entity)}", "${pressure_entity | default(temperature_entity)}");
+      - lvgl.label.update:
+          id: ${uid}_history_status
+          text: "Lade 7d …"
+      - homeassistant.action:
+          action: recorder.get_statistics
+          data:
+            statistic_ids:
+              - ${temperature_entity}
+              - ${humidity_entity | default(temperature_entity)}
+              - ${pressure_entity | default(temperature_entity)}
+            start_time: "{{ (now() - timedelta(days=7)).isoformat() }}"
+            end_time: "{{ now().isoformat() }}"
+            period: hour
+            types:
+              - mean
+          capture_response: true
+          on_success:
+            - lambda: |-
+                id(${uid}_history_data)->load_response(response);
+            - lvgl.widget.refresh: ${uid}_history_plot_1
+            - lvgl.widget.refresh: ${uid}_history_plot_2
+            - lvgl.widget.refresh: ${uid}_history_plot_3
+            - lvgl.widget.refresh: ${uid}_history_minmax_1
+            - lvgl.widget.refresh: ${uid}_history_minmax_2
+            - lvgl.widget.refresh: ${uid}_history_minmax_3
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "7d"
+          on_error:
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "HA-Fehler"
+
+  - id: ${uid}_history_query_30d
+    then:
+      - lambda: |-
+          id(${uid}_history_data)->begin("30d", "${temperature_entity}", "${humidity_entity | default(temperature_entity)}", "${pressure_entity | default(temperature_entity)}");
+      - lvgl.label.update:
+          id: ${uid}_history_status
+          text: "Lade 30d …"
+      - homeassistant.action:
+          action: recorder.get_statistics
+          data:
+            statistic_ids:
+              - ${temperature_entity}
+              - ${humidity_entity | default(temperature_entity)}
+              - ${pressure_entity | default(temperature_entity)}
+            start_time: "{{ (now() - timedelta(days=30)).isoformat() }}"
+            end_time: "{{ now().isoformat() }}"
+            period: hour
+            types:
+              - mean
+          capture_response: true
+          on_success:
+            - lambda: |-
+                id(${uid}_history_data)->load_response(response);
+            - lvgl.widget.refresh: ${uid}_history_plot_1
+            - lvgl.widget.refresh: ${uid}_history_plot_2
+            - lvgl.widget.refresh: ${uid}_history_plot_3
+            - lvgl.widget.refresh: ${uid}_history_minmax_1
+            - lvgl.widget.refresh: ${uid}_history_minmax_2
+            - lvgl.widget.refresh: ${uid}_history_minmax_3
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "30d"
+          on_error:
+            - lvgl.label.update:
+                id: ${uid}_history_status
+                text: "HA-Fehler"
+
+
+lvgl:
+  pages:
+    - id: !extend ${page_id | default("main_page")}
+      widgets:
+        - obj:
+            id: ${uid}_history_root
+            grid_cell_row_pos: ${row | default(0)}
+            grid_cell_column_pos: ${column | default(0)}
+            grid_cell_row_span: ${row_span | default(4)}
+            grid_cell_column_span: ${column_span | default(4)}
+            bg_color: $button_off_color
+            bg_opa: cover
+            radius: 12
+            pad_all: 8
+            layout:
+              type: flex
+              flex_flow: column
+              flex_align_main: space_evenly
+              flex_align_cross: stretch
+            widgets:
+              - label:
+                  id: ${uid}_history_title
+                  text: "${title | default('Historie')}"
+                  text_color: $label_on_color
+                  width: 100%
+                  height: 10%
+
+              - obj:
+                  id: ${uid}_history_plot_area
+                  width: 100%
+                  height: 64%
+                  bg_color: "very_dark_gray"
+                  bg_opa: cover
+                  radius: 8
+                  pad_all: 4
+                  widgets:
+                    - line:
+                        id: ${uid}_history_plot_1
+                        width: 100%
+                        height: 100%
+                        line_width: 3
+                        line_rounded: true
+                        line_color: "ep_orange"
+                        points:
+                          - x: !lambda 'return int((float(0) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 0, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(1) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 1, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(2) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 2, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(3) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 3, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(4) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 4, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(5) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 5, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(6) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 6, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(7) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 7, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(8) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 8, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(9) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 9, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(10) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 10, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(11) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 11, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(12) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 12, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(13) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 13, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(14) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 14, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(15) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 15, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(16) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 16, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(17) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 17, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(18) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 18, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(19) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 19, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(20) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 20, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(21) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 21, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(22) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 22, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(23) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 23, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(24) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 24, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(25) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 25, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(26) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 26, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(27) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 27, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(28) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 28, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(29) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 29, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(30) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 30, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(31) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 31, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(32) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 32, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(33) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 33, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(34) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 34, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(35) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 35, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(36) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 36, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(37) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 37, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(38) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 38, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(39) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 39, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(40) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 40, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(41) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 41, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(42) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 42, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(43) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 43, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(44) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 44, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(45) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 45, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(46) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 46, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                          - x: !lambda 'return int((float(47) / 47) * lv_obj_get_width(id(${uid}_history_plot_1)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(0, 47, lv_obj_get_height(id(${uid}_history_plot_1)));'
+                    - line:
+                        id: ${uid}_history_plot_2
+                        width: 100%
+                        height: 100%
+                        line_width: 3
+                        line_rounded: true
+                        line_color: "ep_blue"
+                        points:
+                          - x: !lambda 'return int((float(0) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 0, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(1) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 1, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(2) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 2, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(3) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 3, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(4) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 4, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(5) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 5, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(6) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 6, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(7) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 7, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(8) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 8, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(9) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 9, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(10) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 10, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(11) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 11, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(12) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 12, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(13) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 13, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(14) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 14, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(15) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 15, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(16) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 16, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(17) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 17, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(18) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 18, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(19) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 19, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(20) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 20, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(21) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 21, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(22) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 22, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(23) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 23, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(24) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 24, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(25) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 25, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(26) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 26, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(27) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 27, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(28) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 28, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(29) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 29, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(30) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 30, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(31) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 31, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(32) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 32, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(33) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 33, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(34) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 34, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(35) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 35, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(36) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 36, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(37) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 37, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(38) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 38, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(39) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 39, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(40) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 40, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(41) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 41, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(42) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 42, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(43) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 43, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(44) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 44, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(45) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 45, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(46) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 46, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                          - x: !lambda 'return int((float(47) / 47) * lv_obj_get_width(id(${uid}_history_plot_2)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(1, 47, lv_obj_get_height(id(${uid}_history_plot_2)));'
+                    - line:
+                        id: ${uid}_history_plot_3
+                        width: 100%
+                        height: 100%
+                        line_width: 3
+                        line_rounded: true
+                        line_color: "ep_green"
+                        points:
+                          - x: !lambda 'return int((float(0) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 0, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(1) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 1, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(2) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 2, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(3) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 3, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(4) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 4, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(5) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 5, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(6) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 6, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(7) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 7, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(8) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 8, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(9) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 9, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(10) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 10, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(11) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 11, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(12) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 12, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(13) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 13, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(14) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 14, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(15) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 15, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(16) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 16, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(17) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 17, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(18) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 18, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(19) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 19, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(20) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 20, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(21) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 21, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(22) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 22, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(23) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 23, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(24) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 24, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(25) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 25, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(26) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 26, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(27) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 27, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(28) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 28, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(29) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 29, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(30) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 30, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(31) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 31, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(32) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 32, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(33) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 33, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(34) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 34, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(35) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 35, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(36) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 36, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(37) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 37, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(38) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 38, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(39) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 39, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(40) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 40, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(41) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 41, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(42) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 42, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(43) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 43, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(44) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 44, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(45) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 45, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(46) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 46, lv_obj_get_height(id(${uid}_history_plot_3)));'
+                          - x: !lambda 'return int((float(47) / 47) * lv_obj_get_width(id(${uid}_history_plot_3)));'
+                            y: !lambda 'return id(${uid}_history_data)->y(2, 47, lv_obj_get_height(id(${uid}_history_plot_3)));'
+
+              - obj:
+                  id: ${uid}_history_minmax_row
+                  width: 100%
+                  height: 12%
+                  layout:
+                    type: flex
+                    flex_flow: row
+                    flex_align_main: space_evenly
+                    flex_align_cross: center
+                  widgets:
+                    - label:
+                        id: ${uid}_history_minmax_1
+                        text: !lambda 'return id(${uid}_history_data)->range_text(0);'
+                        text_color: "ep_orange"
+                        width: 32%
+                    - label:
+                        id: ${uid}_history_minmax_2
+                        text: !lambda 'return id(${uid}_history_data)->range_text(1);'
+                        text_color: "ep_blue"
+                        width: 32%
+                    - label:
+                        id: ${uid}_history_minmax_3
+                        text: !lambda 'return id(${uid}_history_data)->range_text(2);'
+                        text_color: "ep_green"
+                        width: 32%
+
+              - obj:
+                  id: ${uid}_history_controls
+                  width: 100%
+                  height: 14%
+                  layout:
+                    type: flex
+                    flex_flow: row
+                    flex_align_main: space_evenly
+                    flex_align_cross: center
+                  widgets:
+                    - button:
+                        id: ${uid}_history_btn_1h
+                        width: 18%
+                        height: 100%
+                        on_click:
+                          - script.execute: ${uid}_history_query_1h
+                        widgets:
+                          - label:
+                              text: "1h"
+                              align: CENTER
+                    - button:
+                        id: ${uid}_history_btn_6h
+                        width: 18%
+                        height: 100%
+                        on_click:
+                          - script.execute: ${uid}_history_query_6h
+                        widgets:
+                          - label:
+                              text: "6h"
+                              align: CENTER
+                    - button:
+                        id: ${uid}_history_btn_24h
+                        width: 18%
+                        height: 100%
+                        on_click:
+                          - script.execute: ${uid}_history_query_24h
+                        widgets:
+                          - label:
+                              text: "24h"
+                              align: CENTER
+                    - button:
+                        id: ${uid}_history_btn_7d
+                        width: 18%
+                        height: 100%
+                        on_click:
+                          - script.execute: ${uid}_history_query_7d
+                        widgets:
+                          - label:
+                              text: "7d"
+                              align: CENTER
+                    - button:
+                        id: ${uid}_history_btn_30d
+                        width: 18%
+                        height: 100%
+                        on_click:
+                          - script.execute: ${uid}_history_query_30d
+                        widgets:
+                          - label:
+                              text: "30d"
+                              align: CENTER
+
+              - label:
+                  id: ${uid}_history_status
+                  text: "24h"
+                  text_color: $label_off_color
+                  width: 100%
+                  height: 8%
+                  align: CENTER

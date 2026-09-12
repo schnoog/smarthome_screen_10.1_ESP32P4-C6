@@ -329,35 +329,6 @@ packages:
       precision: 1
       page_id: "main_page"  
 
-#    .aMMMb  .aMMMb  dMMMMMMMMb dMMMMMP dMMMMb  .aMMMb 
-#   dMP"VMP dMP"dMP dMP"dMP"dMPdMP     dMP.dMP dMP"dMP 
-#  dMP     dMMMMMP dMP dMP dMPdMMMP   dMMMMK" dMMMMMP  
-# dMP.aMP dMP dMP dMP dMP dMPdMP     dMP"AMF dMP dMP   
-# VMMMP" dMP dMP dMP dMP dMPdMMMMMP dMP dMP dMP dMP    
-#                                                      
-
-  camera:
-    !include
-      file: draft/camera_remote.yaml
-
-      vars:
-        uid: esp32s3cam
-
-        row: 1
-        column: 4
-        row_span: 2
-        column_span: 2
-
-        text: "Kamera"
-
-        image_width: 240
-        image_height: 176
-
-        camera_url: "http://192.168.178.119:8123/local/esp32s3cam.jpg"
-
-        update_interval: 15s
-        page_id: "second_page"
-
 #  ____           _ _       
 # |  _ \ __ _  __| (_) ___  
 # | |_) / _` |/ _` | |/ _ \ 
@@ -585,17 +556,63 @@ packages:
 #                                              
 
 
-
-  page_button_main: !include
-    file: esphome-modular-lvgl-buttons/ui/page/page_button.yaml
+  history_chart: !include
+    file: draft/history_chart/chart.yaml
     vars:
-      uid: page_button_main
-      row: 3
+      uid: temp_history
+      title: "Klima"
+      temperature_entity: "sensor.cyd1_temperatur_2"
+      humidity_entity: "sensor.cyd1_feuchtigkeit_2"
+      pressure_entity: "sensor.cyd1_luftdruck_2"
+      row: 0
       column: 0
-      text: "Hauptseite"
-      icon: $mdi_page_previous
+      row_span: 4
+      column_span: 6
       page_id: "second_page"
-      click_page: "main_page"
+
+
+
+#    .aMMMb  .aMMMb  dMMMMMMMMb dMMMMMP dMMMMb  .aMMMb 
+#   dMP"VMP dMP"dMP dMP"dMP"dMPdMP     dMP.dMP dMP"dMP 
+#  dMP     dMMMMMP dMP dMP dMPdMMMP   dMMMMK" dMMMMMP  
+# dMP.aMP dMP dMP dMP dMP dMPdMP     dMP"AMF dMP dMP   
+# VMMMP" dMP dMP dMP dMP dMPdMMMMMP dMP dMP dMP dMP    
+#                                                      
+
+  camera:
+    !include
+      file: draft/camera_remote.yaml
+
+      vars:
+        uid: esp32s3cam
+
+        row: 0
+        column: 7
+        row_span: 2
+        column_span: 2
+
+        text: "Kamera"
+
+        image_width: 240
+        image_height: 176
+
+        camera_url: "http://192.168.178.119:8123/local/esp32s3cam.jpg"
+
+        update_interval: 15s
+        page_id: "second_page"
+
+
+
+#  page_button_main: !include
+#    file: esphome-modular-lvgl-buttons/ui/page/page_button.yaml
+#    vars:
+#      uid: page_button_main
+#      row: 3
+#      column: 8
+#      text: "Hauptseite"
+#      icon: $mdi_page_previous
+#      page_id: "second_page"
+#      click_page: "main_page"
 
 
 switch:
